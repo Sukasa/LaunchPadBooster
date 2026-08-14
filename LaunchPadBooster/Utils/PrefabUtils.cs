@@ -12,6 +12,14 @@ public static class PrefabUtils
     var swatch = GameManager.GetColorSwatch((int)color);
     return emissive ? swatch.Emissive : swatch.Normal;
   }
+  
+  public static Material GetMaterialByName(string materialName, bool asUnique = false)
+  {
+    var Res = Resources.Load<Material>(materialName);
+    if (asUnique && Res is not null)
+      Res = Object.Instantiate(Res);
+    return Res;
+  }
 
   extension(Thing thing)
   {
