@@ -13,9 +13,25 @@ public static class PrefabUtils
     return emissive ? swatch.Emissive : swatch.Normal;
   }
 
-  public static T GetResourceByName<T>(string materialName, bool asUnique = false) where T : Object
+  /// <summary>
+  ///   Given a resource type, returns the requested resource of that type from Stationeers' Resources.assets file
+  /// </summary>
+  /// <param name="resourceName">
+  ///   Which resource name (case-sensitive) to load
+  /// </param>
+  /// <param name="asUnique">
+  ///   Whether to instantiate a unique copy of the resource, to safely allow modification
+  /// </param>
+  /// <typeparam name="T">
+  ///   Type parameter for the requested resource
+  /// </typeparam>
+  /// <returns>
+  ///   NULL if the requested resource does not exist
+  ///   Instantiated resource if it does
+  /// </returns>
+  public static T GetResourceByName<T>(string resourceName, bool asUnique = false) where T : Object
   {
-    var Res = Resources.Load<T>(materialName);
+    var Res = Resources.Load<T>(resourceName);
     if (asUnique && Res is not null)
       Res = Object.Instantiate(Res);
     return Res;
