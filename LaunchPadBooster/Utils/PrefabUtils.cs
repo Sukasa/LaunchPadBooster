@@ -7,158 +7,183 @@ namespace LaunchPadBooster.Utils;
 
 public static class PrefabUtils
 {
-  public static Material GetColorMaterial(ColorType color, bool emissive = false)
-  {
-    var swatch = GameManager.GetColorSwatch((int)color);
-    return emissive ? swatch.Emissive : swatch.Normal;
-  }
-
-  /// <summary>
-  ///   Given a resource type, returns the requested resource of that type from Stationeers' Resources.assets file
-  /// </summary>
-  /// <param name="resourceName">
-  ///   Which resource name (case-sensitive) to load
-  /// </param>
-  /// <param name="asUnique">
-  ///   Whether to instantiate a unique copy of the resource, to safely allow modification
-  /// </param>
-  /// <typeparam name="T">
-  ///   Type parameter for the requested resource
-  /// </typeparam>
-  /// <returns>
-  ///   NULL if the requested resource does not exist
-  ///   Instantiated resource if it does
-  /// </returns>
-  public static T GetResourceByName<T>(string resourceName, bool asUnique = false) where T : Object
-  {
-    var Res = Resources.Load<T>(resourceName);
-    if (asUnique && Res is not null)
-      Res = Object.Instantiate(Res);
-    return Res;
-  }
-
-  extension(Thing thing)
-  {
-    // Replaces the given material with the builtin color swatch material on all renderers
-    public void ReplaceMaterialWithColor(Material material, ColorType color, bool emissive = false)
+    public static Material GetColorMaterial(ColorType color, bool emissive = false)
     {
-      var replaceMat = GetColorMaterial(color, emissive);
+        var swatch = GameManager.GetColorSwatch((int)color);
+        return emissive ? swatch.Emissive : swatch.Normal;
+    }
 
-      if (thing.PaintableMaterial == material)
-        thing.PaintableMaterial = replaceMat;
+    /// <summary>
+    ///   Given a resource type, finds a resource in the loaded asset bundles with the matching name.<br />
+    ///   If a path is supplied, the game will search for the specific path within the asset bundled
+    /// </summary>
+    /// <param name="resourceName">
+    ///   Which resource name (case-sensitive) to load
+    /// </param>
+    /// <param name="asUnique">
+    ///   Whether to instantiate a unique copy of the resource, to safely allow modification
+    /// </param>
+    /// <typeparam name="T">
+    ///   Type parameter for the requested resource
+    /// </typeparam>
+    /// <returns>
+    ///   NULL if the requested resource does not exist<br />
+    ///   Instantiated resource if it does
+    /// </returns>
+    public static T GetResourceByName<T>(string resourceName, bool asUnique = false) where T : Object
+    {
+        var activeBundles = AssetBundle.GetAllLoadedAssetBundles();
 
-      foreach (var renderer in thing.GetComponentsInChildren<MeshRenderer>(true))
-      {
-        var mats = renderer.sharedMaterials;
-        for (var i = 0; i < mats.Length; i++)
+        foreach (var bundle in activeBundles)
         {
-          if (mats[i] == material)
-            mats[i] = replaceMat;
+            foreach (var assetPath in bundle.GetAllAssetNames())
+            {
+                if (!assetPath.EndsWith(resourceName))
+                    continue;
+                
+                var Res = bundle.LoadAsset<T>(assetPath);
+                
+                if (Res == null)
+                    continue;
+                
+                if (asUnique)
+                    Res = Object.Instantiate(Res);
+                return Res;
+            }
         }
-        renderer.sharedMaterials = mats;
-      }
+
+        return null;
     }
 
-    public bool CanSetBuildTool(string toolName, int index, out Structure structure, out Item tool)
+    extension(Thing thing)
     {
-      structure = thing as Structure;
-      if (structure == null)
-      {
-        tool = null;
-        Debug.LogWarning($"Cannot set build tool on non-structure prefab {thing.PrefabName}");
-        return false;
-      }
-      if (index < 0 || index >= structure.BuildStates.Count)
-      {
-        Debug.LogWarning($"Invalid build state index {index} for prefab {structure.PrefabName}");
-        tool = null;
-        return false;
-      }
-      tool = FindPrefab<Item>(toolName);
-      if (tool == null)
-      {
-        Debug.LogWarning($"Could not find build tool {toolName} for prefab {structure.PrefabName}");
-        return false;
-      }
-      return true;
-    }
-  }
+        // Replaces the given material with the builtin color swatch material on all renderers
+        public void ReplaceMaterialWithColor(Material material, ColorType color, bool emissive = false)
+        {
+            var replaceMat = GetColorMaterial(color, emissive);
 
-  extension(Structure structure)
-  {
-    public void SetEntryTool(string toolName, int index = 0)
+            if (thing.PaintableMaterial == material)
+                thing.PaintableMaterial = replaceMat;
+
+            foreach (var renderer in thing.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var mats = renderer.sharedMaterials;
+                for (var i = 0; i < mats.Length; i++)
+                {
+                    if (mats[i] == material)
+                        mats[i] = replaceMat;
+                }
+
+                renderer.sharedMaterials = mats;
+            }
+        }
+
+        public bool CanSetBuildTool(string toolName, int index, out Structure structure, out Item tool)
+        {
+            structure = thing as Structure;
+            if (structure == null)
+            {
+                tool = null;
+                Debug.LogWarning($"Cannot set build tool on non-structure prefab {thing.PrefabName}");
+                return false;
+            }
+
+            if (index < 0 || index >= structure.BuildStates.Count)
+            {
+                Debug.LogWarning($"Invalid build state index {index} for prefab {structure.PrefabName}");
+                tool = null;
+                return false;
+            }
+
+            tool = FindPrefab<Item>(toolName);
+            if (tool == null)
+            {
+                Debug.LogWarning($"Could not find build tool {toolName} for prefab {structure.PrefabName}");
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    extension(Structure structure)
     {
-      if (!CanSetBuildTool(structure, toolName, index, out _, out var tool))
-        return;
-      structure.BuildStates[index].Tool.ToolEntry = tool;
+        public void SetEntryTool(string toolName, int index = 0)
+        {
+            if (!CanSetBuildTool(structure, toolName, index, out _, out var tool))
+                return;
+            structure.BuildStates[index].Tool.ToolEntry = tool;
+        }
+
+        public void SetEntry2Tool(string toolName, int index = 0)
+        {
+            if (!CanSetBuildTool(structure, toolName, index, out _, out var tool))
+                return;
+            structure.BuildStates[index].Tool.ToolEntry2 = tool;
+        }
+
+        public void SetExitTool(string toolName, int index = 0)
+        {
+            if (!CanSetBuildTool(structure, toolName, index, out _, out var tool))
+                return;
+            structure.BuildStates[index].Tool.ToolExit = tool;
+        }
+
+        public void AddToMultiConstructorKit(string kitName, int order = -1)
+        {
+            if (!CanSetBuildTool(structure, kitName, 0, out _, out var tool))
+                return;
+
+            if (tool is not MultiConstructor itemKit || itemKit == null)
+                return;
+
+            if (!itemKit.Constructables.Contains(structure))
+            {
+                // Clamp order to a valid insert position; -1 or any out-of-range becomes "append".
+                int insertIndex = (order < 0 || order > itemKit.Constructables.Count)
+                    ? itemKit.Constructables.Count
+                    : order;
+
+                itemKit.Constructables.Insert(insertIndex, structure);
+            }
+
+            structure.BuildStates[0].Tool.ToolExit = tool;
+        }
     }
 
-    public void SetEntry2Tool(string toolName, int index = 0)
+    // This should only be used prior to prefab load in order to set references
+    // Use Prefab.Find<T> after load
+    public static T FindPrefab<T>(string prefabName) where T : Thing =>
+        FindPrefab<T>(Animator.StringToHash(prefabName));
+
+    public static Thing FindPrefab(string prefabName) => FindPrefab<Thing>(prefabName);
+
+    public static T FindPrefab<T>(int prefabHash) where T : Thing
     {
-      if (!CanSetBuildTool(structure, toolName, index, out _, out var tool))
-        return;
-      structure.BuildStates[index].Tool.ToolEntry2 = tool;
+        // SourcePrefabs can contain nulls!
+        var prefab = WorldManager.Instance.SourcePrefabs.Find(prefab => prefab != null && prefab.PrefabHash == prefabHash);
+        return prefab as T;
     }
 
-    public void SetExitTool(string toolName, int index = 0)
+    public static Thing FindPrefab(int prefabHash) => FindPrefab<Thing>(prefabHash);
+
+    private static Material _blueprintMaterial;
+
+    public static Material GetBlueprintMaterial()
     {
-      if (!CanSetBuildTool(structure, toolName, index, out _, out var tool))
-        return;
-      structure.BuildStates[index].Tool.ToolExit = tool;
+        if (_blueprintMaterial != null)
+            return _blueprintMaterial;
+
+        foreach (var prefab in WorldManager.Instance.SourcePrefabs)
+        {
+            if (prefab.Blueprint == null)
+                continue;
+            if (!prefab.Blueprint.TryGetComponent<MeshRenderer>(out var renderer))
+                continue;
+            _blueprintMaterial = renderer.sharedMaterials[0];
+            break;
+        }
+
+        return _blueprintMaterial;
     }
-
-    public void AddToMultiConstructorKit(string kitName, int order = -1)
-    {
-      if (!CanSetBuildTool(structure, kitName, 0, out _, out var tool))
-        return;
-
-      if (tool is not MultiConstructor itemKit || itemKit == null)
-        return;
-
-      if (!itemKit.Constructables.Contains(structure))
-      {
-        // Clamp order to a valid insert position; -1 or any out-of-range becomes "append".
-        int insertIndex = (order < 0 || order > itemKit.Constructables.Count)
-          ? itemKit.Constructables.Count
-          : order;
-
-        itemKit.Constructables.Insert(insertIndex, structure);
-      }
-
-      structure.BuildStates[0].Tool.ToolExit = tool;
-    }
-  }
-
-  // This should only be used prior to prefab load in order to set references
-  // Use Prefab.Find<T> after load
-  public static T FindPrefab<T>(string prefabName) where T : Thing =>
-    FindPrefab<T>(Animator.StringToHash(prefabName));
-  public static Thing FindPrefab(string prefabName) => FindPrefab<Thing>(prefabName);
-
-  public static T FindPrefab<T>(int prefabHash) where T : Thing
-  {
-    // SourcePrefabs can contain nulls!
-    var prefab = WorldManager.Instance.SourcePrefabs.Find(
-      prefab => prefab != null && prefab.PrefabHash == prefabHash);
-    return prefab as T;
-  }
-  public static Thing FindPrefab(int prefabHash) => FindPrefab<Thing>(prefabHash);
-
-  private static Material _blueprintMaterial;
-  public static Material GetBlueprintMaterial()
-  {
-    if (_blueprintMaterial != null)
-      return _blueprintMaterial;
-
-    foreach (var prefab in WorldManager.Instance.SourcePrefabs)
-    {
-      if (prefab.Blueprint == null)
-        continue;
-      if (!prefab.Blueprint.TryGetComponent<MeshRenderer>(out var renderer))
-        continue;
-      _blueprintMaterial = renderer.sharedMaterials[0];
-      break;
-    }
-    return _blueprintMaterial;
-  }
 }

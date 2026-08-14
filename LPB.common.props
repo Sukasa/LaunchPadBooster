@@ -49,6 +49,7 @@
     <GameReference Include="UniTask" />
     <GameReference Include="UnityEngine.AnimationModule" />
     <GameReference Include="UnityEngine.CoreModule" />
+    <GameReference Include="UnityEngine.AssetBundleModule" />
 
     <GameReference Include="BepInEx" />
     <GameReference Include="0Harmony" />
